@@ -39,7 +39,9 @@ Just add `{{numeq}}` at the end of your centered equation, e.g. (assuming you se
 
 and your equation will be automatically numbered:
 
-> && a = b \qquad \qquad (1) &&
+> ```math
+> a = b \qquad \qquad (1)
+> ```
 
 You can optionally provide a label `{{numeq}}{mylabel}`, in which case an anchor will be created.
 You can then link to the equation using `{{eqref: mylabel}}`.
