@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/mdbook-numeq)](https://crates.io/crates/mdbook-numeq)
 [![GitHub License](https://img.shields.io/github/license/yannickseurin/mdbook-numeq)](https://github.com/yannickseurin/mdbook-numeq/blob/main/LICENSE)
 
-An [mdBook](https://github.com/rust-lang/mdBook) preprocessor allowing to automatically number centered equations and later on link to these equations for a "LaTeX"-like experience.
+An [mdBook](https://github.com/rust-lang/mdBook) preprocessor to automatically number centered equations and later create a link to these equations for a "LaTeX" type experience.
 
 ## Installation
 
@@ -39,17 +39,25 @@ Just add `{{numeq}}` at the end of your centered equation, e.g. (assuming you se
 
 and your equation will be automatically numbered:
 
-> ```math
-> a = b \qquad \qquad (1)
-> ```
+> *a = b &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; (1)*
+
 
 You can optionally provide a label `{{numeq}}{mylabel}`, in which case an anchor will be created.
 You can then link to the equation using `{{eqref: mylabel}}`.
 
 ## Options
 
-Currently, the numbering is *per section*.
-You can choose to add the section number as a prefix to the counter by setting the `prefix` option to true.
+By default, the numbering is per section, meaning the counter is reset to zero at the beginning of each section.
+You can choose a global numbering throughout sections by setting the `global` option to true:
+
+```toml
+[preprocessor.numeq]
+global = true
+```
+
+Then, equations will be numbered, say, 1 to 5 in Chapter 1, then 6 to 9 in Chapter 2, etc.
+
+You can choose to add the section number as a prefix to the counter by setting the `prefix` option to true (which makes more sense when `global` is false, but both options are independent).
 
 ```toml
 [preprocessor.numeq]

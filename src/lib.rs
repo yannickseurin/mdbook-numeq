@@ -17,6 +17,7 @@ const NAME: &str = "numeq";
 pub struct NumEqPreprocessor {
     /// Whether equation numbers must be prefixed by the section number.
     with_prefix: bool,
+    global: bool,
 }
 
 /// The `LabelInfo` structure contains information for formatting the hyperlink to a specific equation.
@@ -30,13 +31,17 @@ struct LabelInfo {
 
 impl NumEqPreprocessor {
     pub fn new(ctx: &PreprocessorContext) -> Self {
-        let mut pre = Self::default();
+        let mut preprocessor = Self::default();
 
         if let Some(toml::Value::Boolean(b)) = ctx.config.get("preprocessor.numeq.prefix") {
-            pre.with_prefix = *b;
+            preprocessor.with_prefix = *b;
         }
 
-        pre
+        if let Some(toml::Value::Boolean(b)) = ctx.config.get("preprocessor.numeq.global") {
+            preprocessor.global = *b;
+        }
+
+        preprocessor
     }
 }
 
@@ -48,6 +53,8 @@ impl Preprocessor for NumEqPreprocessor {
     fn run(&self, _ctx: &PreprocessorContext, mut book: Book) -> Result<Book> {
         // a hashmap mapping labels to `LabelInfo` structs
         let mut refs: HashMap<String, LabelInfo> = HashMap::new();
+        // equation counter
+        let mut ctr = 0;
 
         book.for_each_mut(|item: &mut BookItem| {
             if let BookItem::Chapter(chapter) = item {
@@ -62,8 +69,12 @@ impl Preprocessor for NumEqPreprocessor {
                         String::new()
                     };
                     let path = chapter.path.as_ref().unwrap();
+                    // reset counter if global counting is set to false
+                    if !self.global {
+                        ctr = 0;
+                    }
                     chapter.content =
-                        find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs);
+                        find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs, &mut ctr);
                 }
             }
         });
@@ -89,14 +100,13 @@ fn find_and_replace_eqs(
     prefix: &str,
     path: &Path,
     refs: &mut HashMap<String, LabelInfo>,
+    ctr: &mut usize,
 ) -> String {
-    let mut ctr = 0;
-
     // see https://regex101.com/ for an explanation of the regex
     let re: Regex = Regex::new(r"\{\{numeq\}\}(\{(?P<label>.*?)\})?").unwrap();
 
     re.replace_all(s, |caps: &regex::Captures| {
-        ctr += 1;
+        *ctr += 1;
         match caps.name("label") {
             Some(lb) => {
                 // if a label is given, we must update the hashmap
@@ -175,8 +185,9 @@ mod test {
     #[test]
     fn no_label() {
         let mut refs = HashMap::new();
+        let mut ctr = 0;
         let input = String::from(r"{{numeq}}");
-        let output = find_and_replace_eqs(&input, SECNUM, &PATH, &mut refs);
+        let output = find_and_replace_eqs(&input, SECNUM, &PATH, &mut refs, &mut ctr);
         let expected = String::from("\\tag{1.2.1}");
         assert_eq!(output, expected);
         assert!(refs.is_empty());
@@ -185,8 +196,9 @@ mod test {
     #[test]
     fn with_label() {
         let mut refs = HashMap::new();
+        let mut ctr = 0;
         let input = String::from(r"{{numeq}}{eq:test}");
-        let output = find_and_replace_eqs(&input, SECNUM, &PATH, &mut refs);
+        let output = find_and_replace_eqs(&input, SECNUM, &PATH, &mut refs, &mut ctr);
         let expected = String::from("\\htmlId{eq:test}{} \\tag{1.2.1}");
         assert_eq!(output, expected);
         assert_eq!(
