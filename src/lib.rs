@@ -9,6 +9,19 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+pub fn for_each_mut_ordered<'a, F, I>(func: &mut F, items: I)
+where
+    F: FnMut(&mut BookItem),
+    I: IntoIterator<Item = &'a mut BookItem>,
+{
+    for item in items {
+        func(item);
+        if let BookItem::Chapter(ch) = item {
+            for_each_mut_ordered(func, &mut ch.sub_items);
+        }
+    }
+}
+
 /// The preprocessor name.
 const NAME: &str = "numeq";
 
@@ -55,8 +68,9 @@ impl Preprocessor for NumEqPreprocessor {
         let mut refs: HashMap<String, LabelInfo> = HashMap::new();
         // equation counter
         let mut ctr = 0;
-
-        book.for_each_mut(|item: &mut BookItem| {
+        
+        for_each_mut_ordered(&mut |item: &mut BookItem| {
+        // book.for_each_mut(|item: &mut BookItem| {
             if let BookItem::Chapter(chapter) = item {
                 if !chapter.is_draft_chapter() {
                     // one can safely unwrap chapter.path which must be Some(...)
@@ -77,7 +91,8 @@ impl Preprocessor for NumEqPreprocessor {
                         find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs, &mut ctr);
                 }
             }
-        });
+        // });
+        }, &mut book.sections);
 
         book.for_each_mut(|item: &mut BookItem| {
             if let BookItem::Chapter(chapter) = item {
