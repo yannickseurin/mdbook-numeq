@@ -77,7 +77,6 @@ impl Preprocessor for NumEqPreprocessor {
         // initialize with one 1 followed by (prefix_depth - 1) zeros
         let mut ccn: Vec<usize> = vec![1];
         ccn.resize(self.prefix_depth, 0);
-        warn!("ccn: {:?}", ccn);
         
         for_each_mut_ordered(&mut |item: &mut BookItem| {
         // book.for_each_mut(|item: &mut BookItem| {
@@ -110,8 +109,6 @@ impl Preprocessor for NumEqPreprocessor {
                             if prefix_vec.len() < self.prefix_depth {
                                 prefix_vec.resize(self.prefix_depth, 0);
                             }
-                            warn!
-                                ("ccn: {:?}, prefix_vec: {:?}", ccn, prefix_vec);
                             // if ccn is different from the specifier in prefix_vec, update ccn
                             if &ccn[..] != &prefix_vec[..self.prefix_depth] {
                                 ccn.copy_from_slice(&prefix_vec[..self.prefix_depth]);
@@ -122,7 +119,7 @@ impl Preprocessor for NumEqPreprocessor {
                             prefix = ccn.iter().fold(String::new(), |acc, x| acc + &x.to_string() + ".");
                         }
                     }
-                    warn!("prefix: {}, path: {:?}", prefix, path);
+                    
                     chapter.content =
                         find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs, &mut ctr);
                 }
