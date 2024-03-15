@@ -79,7 +79,6 @@ impl Preprocessor for NumEqPreprocessor {
         ccn.resize(self.prefix_depth, 0);
         
         for_each_mut_ordered(&mut |item: &mut BookItem| {
-        // book.for_each_mut(|item: &mut BookItem| {
             if let BookItem::Chapter(chapter) = item {
                 if !chapter.is_draft_chapter() {
                     // one can safely unwrap chapter.path which must be Some(...)
@@ -103,14 +102,14 @@ impl Preprocessor for NumEqPreprocessor {
                         } else {
                             // obtain the chapter number as vector of usize
                             let mut prefix_vec: Vec<usize> = prefix
-                                .trim_end_matches(".").split(".")
+                                .trim_end_matches('.').split('.')
                                 .map(|s| s.parse::<usize>().unwrap())
                                 .collect::<Vec<usize>>();
                             if prefix_vec.len() < self.prefix_depth {
                                 prefix_vec.resize(self.prefix_depth, 0);
                             }
                             // if ccn is different from the specifier in prefix_vec, update ccn
-                            if &ccn[..] != &prefix_vec[..self.prefix_depth] {
+                            if ccn[..] != prefix_vec[..self.prefix_depth] {
                                 ccn.copy_from_slice(&prefix_vec[..self.prefix_depth]);
                                 // reset counter
                                 ctr = 0;
@@ -124,7 +123,6 @@ impl Preprocessor for NumEqPreprocessor {
                         find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs, &mut ctr);
                 }
             }
-        // });
         }, &mut book.sections);
 
         book.for_each_mut(|item: &mut BookItem| {
