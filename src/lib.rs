@@ -9,6 +9,19 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+pub fn for_each_mut_ordered<'a, F, I>(func: &mut F, items: I)
+where
+    F: FnMut(&mut BookItem),
+    I: IntoIterator<Item = &'a mut BookItem>,
+{
+    for item in items {
+        func(item);
+        if let BookItem::Chapter(ch) = item {
+            for_each_mut_ordered(func, &mut ch.sub_items);
+        }
+    }
+}
+
 /// The preprocessor name.
 const NAME: &str = "numeq";
 
@@ -17,6 +30,7 @@ const NAME: &str = "numeq";
 pub struct NumEqPreprocessor {
     /// Whether equation numbers must be prefixed by the section number.
     with_prefix: bool,
+    prefix_depth: usize,
     global: bool,
 }
 
@@ -37,6 +51,10 @@ impl NumEqPreprocessor {
             preprocessor.with_prefix = *b;
         }
 
+        if let Some(toml::Value::Integer(d)) = ctx.config.get("preprocessor.numeq.depth") {
+            preprocessor.prefix_depth = *d as usize;
+        }
+
         if let Some(toml::Value::Boolean(b)) = ctx.config.get("preprocessor.numeq.global") {
             preprocessor.global = *b;
         }
@@ -55,12 +73,17 @@ impl Preprocessor for NumEqPreprocessor {
         let mut refs: HashMap<String, LabelInfo> = HashMap::new();
         // equation counter
         let mut ctr = 0;
-
-        book.for_each_mut(|item: &mut BookItem| {
+        // store current (sub-)chapter number according to the depth
+        // initialize with one 1 followed by (prefix_depth - 1) zeros
+        let mut ccn: Vec<usize> = vec![1];
+        ccn.resize(self.prefix_depth, 0);
+        
+        for_each_mut_ordered(&mut |item: &mut BookItem| {
+        // book.for_each_mut(|item: &mut BookItem| {
             if let BookItem::Chapter(chapter) = item {
                 if !chapter.is_draft_chapter() {
                     // one can safely unwrap chapter.path which must be Some(...)
-                    let prefix = if self.with_prefix {
+                    let mut prefix = if self.with_prefix {
                         match &chapter.number {
                             Some(sn) => sn.to_string(),
                             None => String::new(),
@@ -70,14 +93,39 @@ impl Preprocessor for NumEqPreprocessor {
                     };
                     let path = chapter.path.as_ref().unwrap();
                     // reset counter if global counting is set to false
-                    if !self.global {
+                    if !self.global && self.prefix_depth == 0 {
                         ctr = 0;
                     }
+                    if self.prefix_depth > 0 {
+                        if prefix.is_empty() {
+                            // if prefix is empty, reset counter
+                            ctr = 0;
+                        } else {
+                            // obtain the chapter number as vector of usize
+                            let mut prefix_vec: Vec<usize> = prefix
+                                .trim_end_matches(".").split(".")
+                                .map(|s| s.parse::<usize>().unwrap())
+                                .collect::<Vec<usize>>();
+                            if prefix_vec.len() < self.prefix_depth {
+                                prefix_vec.resize(self.prefix_depth, 0);
+                            }
+                            // if ccn is different from the specifier in prefix_vec, update ccn
+                            if &ccn[..] != &prefix_vec[..self.prefix_depth] {
+                                ccn.copy_from_slice(&prefix_vec[..self.prefix_depth]);
+                                // reset counter
+                                ctr = 0;
+                            }
+                            // update prefix
+                            prefix = ccn.iter().fold(String::new(), |acc, x| acc + &x.to_string() + ".");
+                        }
+                    }
+                    
                     chapter.content =
                         find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs, &mut ctr);
                 }
             }
-        });
+        // });
+        }, &mut book.sections);
 
         book.for_each_mut(|item: &mut BookItem| {
             if let BookItem::Chapter(chapter) = item {
