@@ -47,8 +47,8 @@ You can then link to the equation using `{{eqref: mylabel}}`.
 
 ## Options
 
-By default, the numbering is per section, meaning the counter is reset to zero at the beginning of each section.
-You can choose a global numbering throughout sections by setting the `global` option to true:
+By default, the numbering is per (sub)chapter, meaning the counter is reset to zero at the beginning of each (sub)chapter.
+You can choose a global numbering throughout the book by setting the `global` option to true:
 
 ```toml
 [preprocessor.numeq]
@@ -57,11 +57,37 @@ global = true
 
 Then, equations will be numbered, say, 1 to 5 in Chapter 1, then 6 to 9 in Chapter 2, etc.
 
-You can choose to add the section number as a prefix to the counter by setting the `prefix` option to true (which makes more sense when `global` is false, but both options are independent).
+You can choose to add the chapter number as a prefix to the counter by setting the `prefix` option to true (which makes more sense when `global` is false, but both options are independent).
 
 ```toml
 [preprocessor.numeq]
 prefix = true
 ```
 
-For example, in Section 3.2, equations will then be numbered 3.2.1, 3.2.2, etc.
+For example, in Chapter 3.2, equations will then be numbered 3.2.1, 3.2.2, etc.
+
+Additionally, the `depth` option controls how many layers of prefix should be applied.
+Leaving it unspecified or setting `depth = 0` means the full prefix is always used.
+Setting, e.g., `depth = 1`, equations will be numbered 3.1, 3.2 etc. throughout Chapter 3 and all its subchapters.
+Note that prefixes are always `depth`-long and trailing zeros are added if needed (e.g., if `depth = 3` then prefix 3.0.0 is used in Chapter 3, prefix 3.1.0 is used in Chapter 3.1, etc.)
+
+Although it should only make sense to use `depth` strictly larger than 0 with `prefix = true`, these two options are independent.
+Note that when `depth` is set to any number strictly greater than 0, option `global` is ignored and the equation counter is reset for each prefix.
+This means that setting
+
+```toml
+[preprocessor.numeq]
+global = true
+prefix = false
+depth = 1
+```
+
+is equivalent to
+
+```toml
+[preprocessor.numeq]
+global = false
+prefix = false
+```
+
+and the equation counter is reset for each (sub)chapter and no prefix is prepended.
