@@ -7,7 +7,7 @@ use std::io;
 
 /// Parse CLI options.
 pub fn make_app() -> Command {
-    Command::new("mdbook-numthm")
+    Command::new("mdbook-numeq")
         .version(crate_version!())
         .about("An mdbook preprocessor that automatically numbers centered equations")
         .subcommand(
