@@ -1,9 +1,9 @@
 //! An [mdBook](https://github.com/rust-lang/mdBook) preprocessor for automatically numbering centered equations.
 
 use log::warn;
-use mdbook::book::{Book, BookItem};
-use mdbook::errors::Result;
-use mdbook::preprocess::{Preprocessor, PreprocessorContext};
+use mdbook_preprocessor::book::{Book, BookItem};
+use mdbook_preprocessor::errors::Result;
+use mdbook_preprocessor::{Preprocessor, PreprocessorContext};
 use pathdiff::diff_paths;
 use regex::Regex;
 use std::collections::HashMap;
@@ -47,16 +47,18 @@ impl NumEqPreprocessor {
     pub fn new(ctx: &PreprocessorContext) -> Self {
         let mut preprocessor = Self::default();
 
-        if let Some(toml::Value::Boolean(b)) = ctx.config.get("preprocessor.numeq.prefix") {
-            preprocessor.with_prefix = *b;
+        if let Ok(Some(b)) = ctx.config.get::<bool>("preprocessor.numeq.prefix") {
+            preprocessor.with_prefix = b;
         }
 
-        if let Some(toml::Value::Integer(d)) = ctx.config.get("preprocessor.numeq.depth") {
-            preprocessor.prefix_depth = *d as usize;
+        if let Ok(Some(d)) = ctx.config.get::<i32>("preprocessor.numeq.depth") {
+            if d > 0 {
+                preprocessor.prefix_depth = d as usize;
+            }
         }
 
-        if let Some(toml::Value::Boolean(b)) = ctx.config.get("preprocessor.numeq.global") {
-            preprocessor.global = *b;
+        if let Ok(Some(b)) = ctx.config.get::<bool>("preprocessor.numeq.global") {
+            preprocessor.global = b;
         }
 
         preprocessor
@@ -78,71 +80,55 @@ impl Preprocessor for NumEqPreprocessor {
         let mut ccn: Vec<usize> = vec![1];
         ccn.resize(self.prefix_depth, 0);
 
-        for_each_mut_ordered(
-            &mut |item: &mut BookItem| {
-                if let BookItem::Chapter(chapter) = item {
-                    if !chapter.is_draft_chapter() {
-                        // one can safely unwrap chapter.path which must be Some(...)
-                        let mut prefix = if self.with_prefix {
-                            match &chapter.number {
-                                Some(sn) => sn.to_string(),
-                                None => String::new(),
-                            }
-                        } else {
-                            String::new()
-                        };
-                        let path = chapter.path.as_ref().unwrap();
-                        // reset counter if global counting is set to false
-                        if !self.global && self.prefix_depth == 0 {
-                            ctr = 0;
-                        }
-                        if self.prefix_depth > 0 {
-                            if prefix.is_empty() {
-                                // if prefix is empty, reset counter
-                                ctr = 0;
-                            } else {
-                                // obtain the chapter number as vector of usize
-                                let mut prefix_vec: Vec<usize> = prefix
-                                    .trim_end_matches('.')
-                                    .split('.')
-                                    .map(|s| s.parse::<usize>().unwrap())
-                                    .collect::<Vec<usize>>();
-                                if prefix_vec.len() < self.prefix_depth {
-                                    prefix_vec.resize(self.prefix_depth, 0);
-                                }
-                                // if ccn is different from the specifier in prefix_vec, update ccn
-                                if ccn[..] != prefix_vec[..self.prefix_depth] {
-                                    ccn.copy_from_slice(&prefix_vec[..self.prefix_depth]);
-                                    // reset counter
-                                    ctr = 0;
-                                }
-                                // update prefix
-                                prefix = ccn
-                                    .iter()
-                                    .fold(String::new(), |acc, x| acc + &x.to_string() + ".");
-                            }
-                        }
-                        chapter.content = find_and_replace_eqs(
-                            &chapter.content,
-                            &prefix,
-                            path,
-                            &mut refs,
-                            &mut ctr,
-                        );
-                    }
+        book.for_each_chapter_mut(|chapter| {
+            // one can safely unwrap chapter.path which must be Some(...)
+            let mut prefix = if self.with_prefix {
+                match &chapter.number {
+                    Some(sn) => sn.to_string(),
+                    None => String::new(),
                 }
-            },
-            &mut book.sections,
-        );
-
-        book.for_each_mut(|item: &mut BookItem| {
-            if let BookItem::Chapter(chapter) = item {
-                if !chapter.is_draft_chapter() {
-                    // one can safely unwrap chapter.path which must be Some(...)
-                    let path = chapter.path.as_ref().unwrap();
-                    chapter.content = find_and_replace_refs(&chapter.content, path, &refs);
+            } else {
+                String::new()
+            };
+            let path = chapter.path.as_ref().unwrap();
+            // reset counter if global counting is set to false
+            if !self.global && self.prefix_depth == 0 {
+                ctr = 0;
+            }
+            if self.prefix_depth > 0 {
+                if prefix.is_empty() {
+                    // if prefix is empty, reset counter
+                    ctr = 0;
+                } else {
+                    // obtain the chapter number as vector of usize
+                    let mut prefix_vec: Vec<usize> = prefix
+                        .trim_end_matches('.')
+                        .split('.')
+                        .map(|s| s.parse::<usize>().unwrap())
+                        .collect::<Vec<usize>>();
+                    if prefix_vec.len() < self.prefix_depth {
+                        prefix_vec.resize(self.prefix_depth, 0);
+                    }
+                    // if ccn is different from the specifier in prefix_vec, update ccn
+                    if ccn[..] != prefix_vec[..self.prefix_depth] {
+                        ccn.copy_from_slice(&prefix_vec[..self.prefix_depth]);
+                        // reset counter
+                        ctr = 0;
+                    }
+                    // update prefix
+                    prefix = ccn
+                        .iter()
+                        .fold(String::new(), |acc, x| acc + &x.to_string() + ".");
                 }
             }
+            chapter.content =
+                find_and_replace_eqs(&chapter.content, &prefix, path, &mut refs, &mut ctr);
+        });
+
+        book.for_each_chapter_mut(|chapter| {
+            // one can safely unwrap chapter.path which must be Some(...)
+            let path = chapter.path.as_ref().unwrap();
+            chapter.content = find_and_replace_refs(&chapter.content, path, &refs);
         });
 
         Ok(book)

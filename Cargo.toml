@@ -12,13 +12,14 @@ repository = "https://github.com/yannickseurin/mdbook-numeq"
 keywords = ["mdbook", "preprocessor", "katex"]
 
 [dependencies]
-clap = "4.4.7"
-env_logger = "0.10.0"
-lazy_static = "1.4.0"
-log = "0.4.20"
-mdbook = "0.4.35"
-pathdiff = "0.2.1"
-regex = "1.10.2"
-semver = "1.0.20"
-serde_json = "1.0.108"
-toml = "0.5.11"
+clap = { version = "4.5.53", features = ["cargo"] }
+tracing = "0.1.41"
+tracing-subscriber = {version = "0.3.20", features = ["env-filter"]}
+lazy_static = "1.5.0"
+log = "0.4.28"
+mdbook-preprocessor = "0.5.1"
+pathdiff = "0.2.3"
+regex = "1.12.2"
+semver = "1.0.27"
+serde_json = "1.0.145"
+toml = "0.9.8"
